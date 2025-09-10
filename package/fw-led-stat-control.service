@@ -1,0 +1,10 @@
+[Unit]
+Description=System stats for Framework laptop LED hardware
+
+[Service]
+Type=notify-reload
+ExecStart=/usr/bin/fw-led-stat-control
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target

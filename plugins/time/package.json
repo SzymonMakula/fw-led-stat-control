@@ -1,0 +1,17 @@
+{
+  "name": "time",
+  "version": "1.0.0",
+  "description": "Display GMT time in a binary clock format",
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "asbuild:debug": "asc assembly/index.ts --target debug --bindings raw --exportRuntime --transform ./assembly/transform.ts",
+    "asbuild:release": "asc assembly/index.ts --target release --bindings raw --exportRuntime --transform ./assembly/transform.ts",
+    "asbuild": "npm run asbuild:debug && npm run asbuild:release",
+    "start": "npx serve ."
+  },
+  "devDependencies": {
+    "@types/node": "^24.3.1",
+    "assemblyscript": "^0.28.6"
+  }
+}

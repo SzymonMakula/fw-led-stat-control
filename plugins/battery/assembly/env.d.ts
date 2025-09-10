@@ -1,0 +1,1 @@
+export declare function get_battery_state_of_charge(): f32

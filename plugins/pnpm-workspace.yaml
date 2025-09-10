@@ -1,0 +1,5 @@
+packages:
+  - battery
+  - cpu
+  - time
+  - memory

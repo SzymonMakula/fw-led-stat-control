@@ -1,0 +1,6 @@
+# Build
+target
+release
+
+# IDE
+.idea

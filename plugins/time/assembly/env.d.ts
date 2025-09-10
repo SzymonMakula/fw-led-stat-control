@@ -1,0 +1,1 @@
+export declare function get_epoch_time(): i64

@@ -1,0 +1,14 @@
+{
+  "extends": "assemblyscript/std/assembly.json",
+  "compilerOptions": {
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "types": [
+      "node"
+    ],
+    "target": "ESNext"
+  },
+  "include": [
+    "./**/*.ts"
+  ]
+}

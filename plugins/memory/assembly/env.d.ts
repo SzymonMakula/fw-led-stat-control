@@ -1,0 +1,1 @@
+export declare function get_memory_usage(): f32

@@ -1,0 +1,1 @@
+export declare function get_global_cpu_usage(): f32
