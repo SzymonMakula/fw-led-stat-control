@@ -1,0 +1,289 @@
+use std::collections::HashMap;
+
+use crate::matrix::{EMPTY_MATRIX, Matrix, MATRIX_WIDTH};
+use crate::picture::Picture;
+
+struct Canvas {
+    painters: HashMap<String, Painter>,
+}
+
+struct Painter {
+    offset_x: usize,
+    offset_y: usize,
+    picture_height: usize,
+    picture_width: usize,
+    painter: Box<dyn Picture>,
+}
+
+impl Painter {
+    // Returns space taken by Picture as Matrix. non 0 values indicate space taken.
+    fn get_space_as_matrix(&self) -> Matrix {
+        let mut output = Vec::from(EMPTY_MATRIX);
+
+        for row in 0..self.picture_height {
+            for col in 0..self.picture_width {
+                output[row * MATRIX_WIDTH + col] = 1
+            }
+        }
+        let matrix = Matrix::try_from(output.as_slice())
+            .expect("Input vector should be sanitized to match required schema");
+
+        matrix.shift_matrix(self.offset_x, self.offset_y)
+    }
+}
+impl Canvas {
+    fn get_matrix(&self) -> Matrix {
+        self.painters
+            .iter()
+            .map(|(_, painter)| painter.get_space_as_matrix())
+            .reduce(|mut acc, e| {
+                acc.join_matrix(&e);
+                acc
+            })
+            .unwrap_or(Matrix::default())
+    }
+
+    fn is_space_vacant(&self, painter: &Painter) -> bool {
+        let space_matrix = self.get_matrix();
+        for row in 0..painter.picture_height {
+            for col in 0..painter.picture_width {
+                if space_matrix.get_el(row + painter.offset_y, col + painter.offset_x) > 0 {
+                    return false;
+                }
+            }
+        }
+        true
+    }
+}
+
+#[cfg(test)]
+mod painter_tests {
+    use crate::canvas::Painter;
+    use crate::matrix::Matrix;
+    use crate::picture::Picture;
+
+    struct PainterMock {}
+
+    impl Picture for PainterMock {
+        // The implementation does not matter for the tests
+        fn draw(&mut self) -> Matrix {
+            Matrix::default()
+        }
+    }
+
+    #[test]
+    fn gets_space_owned_by_3_by_5_matrix() {
+        let painter = Painter {
+            offset_x: 2,
+            offset_y: 2,
+            picture_height: 3,
+            picture_width: 5,
+            painter: Box::new(PainterMock {}),
+        };
+
+        #[rustfmt::skip]
+        let expected_buffer =
+               [0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 1, 1, 1, 1, 1, 0, 0,
+                0, 0, 1, 1, 1, 1, 1, 0, 0,
+                0, 0, 1, 1, 1, 1, 1, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0,
+            ];
+
+        let expected = Matrix::try_from(expected_buffer.as_slice()).unwrap();
+
+        let actual = painter.get_space_as_matrix();
+
+        assert_eq!(expected, actual)
+    }
+}
+
+#[cfg(test)]
+mod canvas_tests {
+    use std::collections::HashMap;
+
+    use crate::canvas::{Canvas, Painter};
+    use crate::matrix::Matrix;
+    use crate::picture::Picture;
+
+    struct PainterMock {}
+
+    impl Picture for PainterMock {
+        // The implementation does not matter for the tests
+        fn draw(&mut self) -> Matrix {
+            Matrix::default()
+        }
+    }
+
+    #[test]
+    fn get_matrix_with_no_pictures() {
+        let canvas = Canvas {
+            painters: HashMap::new(),
+        };
+
+        let expected_matrix = Matrix::default();
+
+        let actual_matrix = canvas.get_matrix();
+
+        assert_eq!(expected_matrix, actual_matrix)
+    }
+
+    #[test]
+    fn get_matrix_with_3_pictures() {
+        let painter_1 = Painter {
+            picture_width: 2,
+            picture_height: 2,
+            offset_x: 0,
+            offset_y: 0,
+            painter: Box::new(PainterMock {}),
+        };
+        let painter_2 = Painter {
+            picture_width: 2,
+            picture_height: 2,
+            offset_x: 2,
+            offset_y: 2,
+            painter: Box::new(PainterMock {}),
+        };
+        let painter_3 = Painter {
+            picture_width: 2,
+            picture_height: 2,
+            offset_x: 4,
+            offset_y: 4,
+            painter: Box::new(PainterMock {}),
+        };
+
+        let canvas = Canvas {
+            painters: HashMap::from([
+                ("painter_one".to_string(), painter_1),
+                ("painter_two".to_string(), painter_2),
+                ("painter_three".to_string(), painter_3),
+            ]),
+        };
+        #[rustfmt::skip]
+        let expected_buffer =
+               [1, 1, 0, 0, 0, 0, 0, 0, 0,
+                1, 1, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 1, 1, 0, 0, 0, 0, 0,
+                0, 0, 1, 1, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 1, 1, 0, 0, 0,
+                0, 0, 0, 0, 1, 1, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0,
+            ];
+
+        let expected_matrix = Matrix::try_from(expected_buffer.as_slice()).unwrap();
+
+        let actual_matrix = canvas.get_matrix();
+
+        assert_eq!(expected_matrix, actual_matrix)
+    }
+
+    #[test]
+    fn is_space_vacant_when_vacant() {
+        let painter_1 = Painter {
+            picture_width: 2,
+            picture_height: 2,
+            offset_x: 0,
+            offset_y: 0,
+            painter: Box::new(PainterMock {}),
+        };
+        let painter_2 = Painter {
+            picture_width: 2,
+            picture_height: 2,
+            offset_x: 2,
+            offset_y: 0,
+            painter: Box::new(PainterMock {}),
+        };
+        let canvas = Canvas {
+            painters: HashMap::from([("painter_one".to_string(), painter_1)]),
+        };
+        assert_eq!(canvas.is_space_vacant(&painter_2), true)
+    }
+
+    #[test]
+    fn is_space_vacant_when_busy() {
+        let painter_1 = Painter {
+            picture_width: 2,
+            picture_height: 2,
+            offset_x: 0,
+            offset_y: 0,
+            painter: Box::new(PainterMock {}),
+        };
+        let painter_2 = Painter {
+            picture_width: 2,
+            picture_height: 2,
+            offset_x: 1, // Intersects by two points
+            offset_y: 0,
+            painter: Box::new(PainterMock {}),
+        };
+        let canvas = Canvas {
+            painters: HashMap::from([("painter_one".to_string(), painter_1)]),
+        };
+        assert_eq!(canvas.is_space_vacant(&painter_2), false)
+    }
+}
