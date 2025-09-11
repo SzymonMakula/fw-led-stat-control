@@ -31,8 +31,13 @@ impl Painter {
         matrix.shift_matrix(self.offset_x, self.offset_y)
     }
 }
+
+enum AddPainterError {
+    SpaceTaken,
+}
 impl Canvas {
-    fn get_matrix(&self) -> Matrix {
+    // Get Matrix of all vacant/busy slots
+    fn get_space_matrix(&self) -> Matrix {
         self.painters
             .iter()
             .map(|(_, painter)| painter.get_space_as_matrix())
@@ -43,8 +48,37 @@ impl Canvas {
             .unwrap_or(Matrix::default())
     }
 
+    // Add Painter to registered Painters
+    fn add_painter(
+        &mut self,
+        painter_key: String,
+        painter: Painter,
+    ) -> Result<(), AddPainterError> {
+        let is_vacant = self.is_space_vacant(&painter);
+
+        if !is_vacant {
+            return Err(AddPainterError::SpaceTaken);
+        }
+
+        self.painters.insert(painter_key, painter);
+        Ok(())
+    }
+
+    // Call .draw() for all Painters and return the resulting Matrix
+    fn paint_matrix(&mut self) -> Matrix {
+        self.painters
+            .iter_mut()
+            .map(|(_, painter)| painter.painter.draw())
+            .reduce(|mut acc, e| {
+                acc.join_matrix(&e);
+                acc
+            })
+            .unwrap_or(Matrix::default())
+    }
+
+    // Check if Painter has enough space to paint its picture
     fn is_space_vacant(&self, painter: &Painter) -> bool {
-        let space_matrix = self.get_matrix();
+        let space_matrix = self.get_space_matrix();
         for row in 0..painter.picture_height {
             for col in 0..painter.picture_width {
                 if space_matrix.get_el(row + painter.offset_y, col + painter.offset_x) > 0 {
@@ -157,7 +191,7 @@ mod canvas_tests {
 
         let expected_matrix = Matrix::default();
 
-        let actual_matrix = canvas.get_matrix();
+        let actual_matrix = canvas.get_space_matrix();
 
         assert_eq!(expected_matrix, actual_matrix)
     }
@@ -238,7 +272,7 @@ mod canvas_tests {
 
         let expected_matrix = Matrix::try_from(expected_buffer.as_slice()).unwrap();
 
-        let actual_matrix = canvas.get_matrix();
+        let actual_matrix = canvas.get_space_matrix();
 
         assert_eq!(expected_matrix, actual_matrix)
     }
