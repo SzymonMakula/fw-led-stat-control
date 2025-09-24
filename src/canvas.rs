@@ -32,6 +32,7 @@ impl Painter {
     }
 }
 
+#[derive(Debug, Eq, PartialEq)]
 enum AddPainterError {
     SpaceTaken,
 }
@@ -68,7 +69,12 @@ impl Canvas {
     fn paint_matrix(&mut self) -> Matrix {
         self.painters
             .iter_mut()
-            .map(|(_, painter)| painter.painter.draw())
+            .map(|(_, painter)| {
+                painter
+                    .painter
+                    .draw()
+                    .shift_matrix(painter.offset_x, painter.offset_y)
+            })
             .reduce(|mut acc, e| {
                 acc.join_matrix(&e);
                 acc
@@ -170,7 +176,7 @@ mod painter_tests {
 mod canvas_tests {
     use std::collections::HashMap;
 
-    use crate::canvas::{Canvas, Painter};
+    use crate::canvas::{AddPainterError, Canvas, Painter};
     use crate::matrix::Matrix;
     use crate::picture::Picture;
 
@@ -319,5 +325,234 @@ mod canvas_tests {
             painters: HashMap::from([("painter_one".to_string(), painter_1)]),
         };
         assert_eq!(canvas.is_space_vacant(&painter_2), false)
+    }
+
+    #[test]
+    fn paint_matrix_with_2_painters() {
+        struct Painter1 {}
+        impl Picture for Painter1 {
+            fn draw(&mut self) -> Matrix {
+                #[rustfmt::skip]
+                let picture =
+                       [1, 0, 0, 0, 0, 0, 0, 0, 0,
+                        0, 1, 0, 0, 0, 0, 0, 0, 0,
+                        0, 0, 0, 0, 0, 0, 0, 0, 0,
+                        0, 0, 0, 0, 0, 0, 0, 0, 0,
+                        0, 0, 0, 0, 0, 0, 0, 0, 0,
+                        0, 0, 0, 0, 0, 0, 0, 0, 0,
+                        0, 0, 0, 0, 0, 0, 0, 0, 0,
+                        0, 0, 0, 0, 0, 0, 0, 0, 0,
+                        0, 0, 0, 0, 0, 0, 0, 0, 0,
+                        0, 0, 0, 0, 0, 0, 0, 0, 0,
+                        0, 0, 0, 0, 0, 0, 0, 0, 0,
+                        0, 0, 0, 0, 0, 0, 0, 0, 0,
+                        0, 0, 0, 0, 0, 0, 0, 0, 0,
+                        0, 0, 0, 0, 0, 0, 0, 0, 0,
+                        0, 0, 0, 0, 0, 0, 0, 0, 0,
+                        0, 0, 0, 0, 0, 0, 0, 0, 0,
+                        0, 0, 0, 0, 0, 0, 0, 0, 0,
+                        0, 0, 0, 0, 0, 0, 0, 0, 0,
+                        0, 0, 0, 0, 0, 0, 0, 0, 0,
+                        0, 0, 0, 0, 0, 0, 0, 0, 0,
+                        0, 0, 0, 0, 0, 0, 0, 0, 0,
+                        0, 0, 0, 0, 0, 0, 0, 0, 0,
+                        0, 0, 0, 0, 0, 0, 0, 0, 0,
+                        0, 0, 0, 0, 0, 0, 0, 0, 0,
+                        0, 0, 0, 0, 0, 0, 0, 0, 0,
+                        0, 0, 0, 0, 0, 0, 0, 0, 0,
+                        0, 0, 0, 0, 0, 0, 0, 0, 0,
+                        0, 0, 0, 0, 0, 0, 0, 0, 0,
+                        0, 0, 0, 0, 0, 0, 0, 0, 0,
+                        0, 0, 0, 0, 0, 0, 0, 0, 0,
+                        0, 0, 0, 0, 0, 0, 0, 0, 0,
+                        0, 0, 0, 0, 0, 0, 0, 0, 0,
+                        0, 0, 0, 0, 0, 0, 0, 0, 0,
+                        0, 0, 0, 0, 0, 0, 0, 0, 0,
+                        0, 0, 0, 0, 0, 0, 0, 0, 0,
+                        0, 0, 0, 0, 0, 0, 0, 0, 0,
+                        0, 0, 0, 0, 0, 0, 0, 0, 0,
+                        0, 0, 0, 0, 0, 0, 0, 0, 0,
+                        0, 0, 0, 0, 0, 0, 0, 0, 0,
+                    ];
+                Matrix::try_from(picture.as_slice()).unwrap()
+            }
+        }
+
+        struct Painter2 {}
+        impl Picture for Painter2 {
+            fn draw(&mut self) -> Matrix {
+                #[rustfmt::skip]
+                let picture =
+                       [0, 1, 0, 0, 0, 0, 0, 0, 0,
+                        1, 0, 0, 0, 0, 0, 0, 0, 0,
+                        0, 0, 0, 0, 0, 0, 0, 0, 0,
+                        0, 0, 0, 0, 0, 0, 0, 0, 0,
+                        0, 0, 0, 0, 0, 0, 0, 0, 0,
+                        0, 0, 0, 0, 0, 0, 0, 0, 0,
+                        0, 0, 0, 0, 0, 0, 0, 0, 0,
+                        0, 0, 0, 0, 0, 0, 0, 0, 0,
+                        0, 0, 0, 0, 0, 0, 0, 0, 0,
+                        0, 0, 0, 0, 0, 0, 0, 0, 0,
+                        0, 0, 0, 0, 0, 0, 0, 0, 0,
+                        0, 0, 0, 0, 0, 0, 0, 0, 0,
+                        0, 0, 0, 0, 0, 0, 0, 0, 0,
+                        0, 0, 0, 0, 0, 0, 0, 0, 0,
+                        0, 0, 0, 0, 0, 0, 0, 0, 0,
+                        0, 0, 0, 0, 0, 0, 0, 0, 0,
+                        0, 0, 0, 0, 0, 0, 0, 0, 0,
+                        0, 0, 0, 0, 0, 0, 0, 0, 0,
+                        0, 0, 0, 0, 0, 0, 0, 0, 0,
+                        0, 0, 0, 0, 0, 0, 0, 0, 0,
+                        0, 0, 0, 0, 0, 0, 0, 0, 0,
+                        0, 0, 0, 0, 0, 0, 0, 0, 0,
+                        0, 0, 0, 0, 0, 0, 0, 0, 0,
+                        0, 0, 0, 0, 0, 0, 0, 0, 0,
+                        0, 0, 0, 0, 0, 0, 0, 0, 0,
+                        0, 0, 0, 0, 0, 0, 0, 0, 0,
+                        0, 0, 0, 0, 0, 0, 0, 0, 0,
+                        0, 0, 0, 0, 0, 0, 0, 0, 0,
+                        0, 0, 0, 0, 0, 0, 0, 0, 0,
+                        0, 0, 0, 0, 0, 0, 0, 0, 0,
+                        0, 0, 0, 0, 0, 0, 0, 0, 0,
+                        0, 0, 0, 0, 0, 0, 0, 0, 0,
+                        0, 0, 0, 0, 0, 0, 0, 0, 0,
+                        0, 0, 0, 0, 0, 0, 0, 0, 0,
+                        0, 0, 0, 0, 0, 0, 0, 0, 0,
+                        0, 0, 0, 0, 0, 0, 0, 0, 0,
+                        0, 0, 0, 0, 0, 0, 0, 0, 0,
+                        0, 0, 0, 0, 0, 0, 0, 0, 0,
+                        0, 0, 0, 0, 0, 0, 0, 0, 0,
+                    ];
+                Matrix::try_from(picture.as_slice()).unwrap()
+            }
+        }
+
+        let painter_1 = Painter {
+            picture_width: 2,
+            picture_height: 2,
+            offset_x: 0,
+            offset_y: 0,
+            painter: Box::new(Painter1 {}),
+        };
+        let painter_2 = Painter {
+            picture_width: 2,
+            picture_height: 2,
+            offset_x: 2,
+            offset_y: 0,
+            painter: Box::new(Painter2 {}),
+        };
+
+        let mut canvas = Canvas {
+            painters: HashMap::from([
+                ("painter_one".to_string(), painter_1),
+                ("painter_two".to_string(), painter_2),
+            ]),
+        };
+
+        #[rustfmt::skip]
+        let expected_buffer =
+               [1, 0, 0, 1, 0, 0, 0, 0, 0,
+                0, 1, 1, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0,
+            ];
+
+        let expected_matrix = Matrix::try_from(expected_buffer.as_slice()).unwrap();
+
+        assert_eq!(canvas.paint_matrix(), expected_matrix);
+    }
+
+    #[test]
+    fn adds_painter_resolves_when_vacant() {
+        let painter = Painter {
+            picture_width: 2,
+            picture_height: 2,
+            offset_x: 0,
+            offset_y: 0,
+            painter: Box::new(PainterMock {}),
+        };
+
+        let mut canvas = Canvas {
+            painters: HashMap::from([]),
+        };
+
+        assert_eq!(canvas.painters.is_empty(), true);
+
+        canvas.add_painter("painter".to_string(), painter).unwrap();
+
+        assert_eq!(canvas.painters.len(), 1)
+    }
+
+    #[test]
+    fn add_painter_rejects_when_space_taken() {
+        let painter_1 = Painter {
+            picture_width: 2,
+            picture_height: 2,
+            offset_x: 0,
+            offset_y: 0,
+            painter: Box::new(PainterMock {}),
+        };
+        // Intersects with painter_1 boundaries
+        let painter_2 = Painter {
+            picture_width: 4,
+            picture_height: 4,
+            offset_x: 1,
+            offset_y: 1,
+            painter: Box::new(PainterMock {}),
+        };
+
+        let mut canvas = Canvas {
+            painters: HashMap::from([]),
+        };
+
+        assert_eq!(canvas.painters.is_empty(), true);
+
+        canvas
+            .add_painter("painter".to_string(), painter_1)
+            .unwrap();
+
+        assert_eq!(canvas.painters.len(), 1);
+
+        let second_painter_add_result = canvas
+            .add_painter("painter_two".to_string(), painter_2)
+            .unwrap_err();
+
+        assert_eq!(second_painter_add_result, AddPainterError::SpaceTaken);
+        assert_eq!(canvas.painters.len(), 1);
     }
 }
