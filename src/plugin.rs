@@ -7,7 +7,7 @@ pub struct Plugin {
     pub description: String,
     pub image_width: usize,
     pub image_height: usize,
-    drawer: Box<dyn Picture>,
+    pub(crate) drawer: Box<dyn Picture>,
 }
 
 impl From<WasmModule> for Plugin {

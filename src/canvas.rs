@@ -1,7 +1,8 @@
 use std::collections::HashMap;
 
-use crate::matrix::{EMPTY_MATRIX, Matrix, MATRIX_WIDTH};
+use crate::matrix::{Matrix, EMPTY_MATRIX, MATRIX_WIDTH};
 use crate::picture::Picture;
+use crate::plugin::Plugin;
 
 struct Canvas {
     painters: HashMap<String, Painter>,
@@ -10,9 +11,7 @@ struct Canvas {
 struct Painter {
     offset_x: usize,
     offset_y: usize,
-    picture_height: usize,
-    picture_width: usize,
-    painter: Box<dyn Picture>,
+    plugin: Plugin,
 }
 
 impl Painter {
@@ -20,8 +19,8 @@ impl Painter {
     fn get_space_as_matrix(&self) -> Matrix {
         let mut output = Vec::from(EMPTY_MATRIX);
 
-        for row in 0..self.picture_height {
-            for col in 0..self.picture_width {
+        for row in 0..self.plugin.image_height {
+            for col in 0..self.plugin.image_width {
                 output[row * MATRIX_WIDTH + col] = 1
             }
         }
@@ -71,7 +70,7 @@ impl Canvas {
             .iter_mut()
             .map(|(_, painter)| {
                 painter
-                    .painter
+                    .plugin
                     .draw()
                     .shift_matrix(painter.offset_x, painter.offset_y)
             })
@@ -85,8 +84,8 @@ impl Canvas {
     // Check if Painter has enough space to paint its picture
     fn is_space_vacant(&self, painter: &Painter) -> bool {
         let space_matrix = self.get_space_matrix();
-        for row in 0..painter.picture_height {
-            for col in 0..painter.picture_width {
+        for row in 0..painter.plugin.image_height {
+            for col in 0..painter.plugin.image_width {
                 if space_matrix.get_el(row + painter.offset_y, col + painter.offset_x) > 0 {
                     return false;
                 }
@@ -101,6 +100,7 @@ mod painter_tests {
     use crate::canvas::Painter;
     use crate::matrix::Matrix;
     use crate::picture::Picture;
+    use crate::plugin::Plugin;
 
     struct PainterMock {}
 
@@ -116,9 +116,13 @@ mod painter_tests {
         let painter = Painter {
             offset_x: 2,
             offset_y: 2,
-            picture_height: 3,
-            picture_width: 5,
-            painter: Box::new(PainterMock {}),
+            plugin: Plugin {
+                image_width: 5,
+                image_height: 3,
+                drawer: Box::new(PainterMock {}),
+                description: "test".to_string(),
+                name: "test".to_string(),
+            },
         };
 
         #[rustfmt::skip]
@@ -179,6 +183,7 @@ mod canvas_tests {
     use crate::canvas::{AddPainterError, Canvas, Painter};
     use crate::matrix::Matrix;
     use crate::picture::Picture;
+    use crate::plugin::Plugin;
 
     struct PainterMock {}
 
@@ -205,25 +210,37 @@ mod canvas_tests {
     #[test]
     fn get_matrix_with_3_pictures() {
         let painter_1 = Painter {
-            picture_width: 2,
-            picture_height: 2,
             offset_x: 0,
             offset_y: 0,
-            painter: Box::new(PainterMock {}),
+            plugin: Plugin {
+                image_width: 2,
+                image_height: 2,
+                drawer: Box::new(PainterMock {}),
+                description: "test".to_string(),
+                name: "test".to_string(),
+            },
         };
         let painter_2 = Painter {
-            picture_width: 2,
-            picture_height: 2,
             offset_x: 2,
             offset_y: 2,
-            painter: Box::new(PainterMock {}),
+            plugin: Plugin {
+                image_width: 2,
+                image_height: 2,
+                drawer: Box::new(PainterMock {}),
+                description: "test".to_string(),
+                name: "test".to_string(),
+            },
         };
         let painter_3 = Painter {
-            picture_width: 2,
-            picture_height: 2,
             offset_x: 4,
             offset_y: 4,
-            painter: Box::new(PainterMock {}),
+            plugin: Plugin {
+                image_width: 2,
+                image_height: 2,
+                drawer: Box::new(PainterMock {}),
+                description: "test".to_string(),
+                name: "test".to_string(),
+            },
         };
 
         let canvas = Canvas {
@@ -286,18 +303,26 @@ mod canvas_tests {
     #[test]
     fn is_space_vacant_when_vacant() {
         let painter_1 = Painter {
-            picture_width: 2,
-            picture_height: 2,
             offset_x: 0,
             offset_y: 0,
-            painter: Box::new(PainterMock {}),
+            plugin: Plugin {
+                image_width: 2,
+                image_height: 2,
+                drawer: Box::new(PainterMock {}),
+                description: "test".to_string(),
+                name: "test".to_string(),
+            },
         };
         let painter_2 = Painter {
-            picture_width: 2,
-            picture_height: 2,
             offset_x: 2,
             offset_y: 0,
-            painter: Box::new(PainterMock {}),
+            plugin: Plugin {
+                image_width: 2,
+                image_height: 2,
+                drawer: Box::new(PainterMock {}),
+                description: "test".to_string(),
+                name: "test".to_string(),
+            },
         };
         let canvas = Canvas {
             painters: HashMap::from([("painter_one".to_string(), painter_1)]),
@@ -308,18 +333,26 @@ mod canvas_tests {
     #[test]
     fn is_space_vacant_when_busy() {
         let painter_1 = Painter {
-            picture_width: 2,
-            picture_height: 2,
             offset_x: 0,
             offset_y: 0,
-            painter: Box::new(PainterMock {}),
+            plugin: Plugin {
+                image_width: 2,
+                image_height: 2,
+                drawer: Box::new(PainterMock {}),
+                description: "test".to_string(),
+                name: "test".to_string(),
+            },
         };
         let painter_2 = Painter {
-            picture_width: 2,
-            picture_height: 2,
             offset_x: 1, // Intersects by two points
             offset_y: 0,
-            painter: Box::new(PainterMock {}),
+            plugin: Plugin {
+                image_width: 2,
+                image_height: 2,
+                drawer: Box::new(PainterMock {}),
+                description: "test".to_string(),
+                name: "test".to_string(),
+            },
         };
         let canvas = Canvas {
             painters: HashMap::from([("painter_one".to_string(), painter_1)]),
@@ -428,18 +461,26 @@ mod canvas_tests {
         }
 
         let painter_1 = Painter {
-            picture_width: 2,
-            picture_height: 2,
             offset_x: 0,
             offset_y: 0,
-            painter: Box::new(Painter1 {}),
+            plugin: Plugin {
+                image_width: 2,
+                image_height: 2,
+                drawer: Box::new(Painter1 {}),
+                description: "test".to_string(),
+                name: "test".to_string(),
+            },
         };
         let painter_2 = Painter {
-            picture_width: 2,
-            picture_height: 2,
             offset_x: 2,
             offset_y: 0,
-            painter: Box::new(Painter2 {}),
+            plugin: Plugin {
+                image_width: 2,
+                image_height: 2,
+                drawer: Box::new(Painter2 {}),
+                description: "test".to_string(),
+                name: "test".to_string(),
+            },
         };
 
         let mut canvas = Canvas {
@@ -500,11 +541,15 @@ mod canvas_tests {
     #[test]
     fn adds_painter_resolves_when_vacant() {
         let painter = Painter {
-            picture_width: 2,
-            picture_height: 2,
             offset_x: 0,
             offset_y: 0,
-            painter: Box::new(PainterMock {}),
+            plugin: Plugin {
+                image_width: 2,
+                image_height: 2,
+                drawer: Box::new(PainterMock {}),
+                description: "test".to_string(),
+                name: "test".to_string(),
+            },
         };
 
         let mut canvas = Canvas {
@@ -521,19 +566,27 @@ mod canvas_tests {
     #[test]
     fn add_painter_rejects_when_space_taken() {
         let painter_1 = Painter {
-            picture_width: 2,
-            picture_height: 2,
             offset_x: 0,
             offset_y: 0,
-            painter: Box::new(PainterMock {}),
+            plugin: Plugin {
+                image_width: 2,
+                image_height: 2,
+                drawer: Box::new(PainterMock {}),
+                description: "test".to_string(),
+                name: "test".to_string(),
+            },
         };
         // Intersects with painter_1 boundaries
         let painter_2 = Painter {
-            picture_width: 4,
-            picture_height: 4,
             offset_x: 1,
             offset_y: 1,
-            painter: Box::new(PainterMock {}),
+            plugin: Plugin {
+                image_width: 4,
+                image_height: 4,
+                drawer: Box::new(PainterMock {}),
+                description: "test".to_string(),
+                name: "test".to_string(),
+            },
         };
 
         let mut canvas = Canvas {
