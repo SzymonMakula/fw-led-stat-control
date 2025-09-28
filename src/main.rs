@@ -1,27 +1,25 @@
-use std::fs;
 use std::io::Write;
 
 use byteorder::ByteOrder;
 use serialport;
 use systemstat::Platform;
 
+use crate::canvas::Canvas;
+use crate::config::Config;
 use crate::picture::Picture;
-use crate::plugin::Plugin;
-use crate::wasm_module::WasmModule;
 
 mod canvas;
+mod config;
+mod controller;
 mod matrix;
 mod picture;
 mod plugin;
 mod wasm_module;
 
 fn main() {
-    let wasm_module_bytes = fs::read("./plugins/battery/build/debug.wasm").unwrap();
-    let wasm_module = WasmModule::new(wasm_module_bytes);
-    let mut plugin = Plugin::from(wasm_module);
-    let picture = plugin.draw();
-
-    print!("got picture {:?}", picture);
+    let mut canvas: Canvas = Config::init().into();
+    let matrix = canvas.paint_matrix();
+    println!("matrix {:?} and {:?}", matrix, canvas.painters.len())
 }
 
 // let mut port = serialport::new("/dev/ttyACM0", 115_200)

@@ -1,0 +1,5 @@
+[[plugins]]
+name = "Battery"
+path = '/home/nynon/projects/fw-systemstats/plugins/battery/build/debug.wasm'
+pos_x = 0
+pos_y = 0

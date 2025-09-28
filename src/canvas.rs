@@ -1,14 +1,43 @@
 use std::collections::HashMap;
+use std::fs;
 
-use crate::matrix::{Matrix, EMPTY_MATRIX, MATRIX_WIDTH};
+use crate::config::Config;
+use crate::matrix::{EMPTY_MATRIX, Matrix, MATRIX_WIDTH};
 use crate::picture::Picture;
 use crate::plugin::Plugin;
+use crate::wasm_module::WasmModule;
 
-struct Canvas {
-    painters: HashMap<String, Painter>,
+pub struct Canvas {
+    pub(crate) painters: HashMap<String, Painter>,
+}
+impl From<Config> for Canvas {
+    fn from(value: Config) -> Self {
+        let painters = value
+            .plugins
+            .into_iter()
+            .filter_map(|record| {
+                if record.pos_x.is_some() && record.pos_y.is_some() {
+                    fs::read(record.path)
+                        .ok()
+                        .map(WasmModule::new)
+                        .map(Plugin::from)
+                        .map(|plugin: Plugin| Painter {
+                            plugin,
+                            offset_x: record.pos_x.unwrap(),
+                            offset_y: record.pos_y.unwrap(),
+                        })
+                        .map(|painter| (record.name, painter))
+                } else {
+                    None
+                }
+            })
+            .collect::<HashMap<String, Painter>>();
+
+        Self { painters }
+    }
 }
 
-struct Painter {
+pub(crate) struct Painter {
     offset_x: usize,
     offset_y: usize,
     plugin: Plugin,
@@ -34,8 +63,15 @@ impl Painter {
 #[derive(Debug, Eq, PartialEq)]
 enum AddPainterError {
     SpaceTaken,
+    DuplicateIdentifier,
 }
 impl Canvas {
+    pub(crate) fn new() -> Self {
+        Self {
+            painters: HashMap::new(),
+        }
+    }
+
     // Get Matrix of all vacant/busy slots
     fn get_space_matrix(&self) -> Matrix {
         self.painters
@@ -49,23 +85,23 @@ impl Canvas {
     }
 
     // Add Painter to registered Painters
-    fn add_painter(
-        &mut self,
-        painter_key: String,
-        painter: Painter,
-    ) -> Result<(), AddPainterError> {
+    pub fn add_painter(&mut self, painter: Painter) -> Result<(), AddPainterError> {
+        if self.painters.get(&painter.plugin.name).is_some() {
+            return Err(AddPainterError::DuplicateIdentifier);
+        }
+
         let is_vacant = self.is_space_vacant(&painter);
 
         if !is_vacant {
             return Err(AddPainterError::SpaceTaken);
         }
 
-        self.painters.insert(painter_key, painter);
+        self.painters.insert(painter.plugin.name.clone(), painter);
         Ok(())
     }
 
     // Call .draw() for all Painters and return the resulting Matrix
-    fn paint_matrix(&mut self) -> Matrix {
+    pub fn paint_matrix(&mut self) -> Matrix {
         self.painters
             .iter_mut()
             .map(|(_, painter)| {
@@ -228,7 +264,7 @@ mod canvas_tests {
                 image_height: 2,
                 drawer: Box::new(PainterMock {}),
                 description: "test".to_string(),
-                name: "test".to_string(),
+                name: "test2".to_string(),
             },
         };
         let painter_3 = Painter {
@@ -239,7 +275,7 @@ mod canvas_tests {
                 image_height: 2,
                 drawer: Box::new(PainterMock {}),
                 description: "test".to_string(),
-                name: "test".to_string(),
+                name: "test3".to_string(),
             },
         };
 
@@ -558,7 +594,7 @@ mod canvas_tests {
 
         assert_eq!(canvas.painters.is_empty(), true);
 
-        canvas.add_painter("painter".to_string(), painter).unwrap();
+        canvas.add_painter(painter).unwrap();
 
         assert_eq!(canvas.painters.len(), 1)
     }
@@ -585,7 +621,7 @@ mod canvas_tests {
                 image_height: 4,
                 drawer: Box::new(PainterMock {}),
                 description: "test".to_string(),
-                name: "test".to_string(),
+                name: "test2".to_string(),
             },
         };
 
@@ -595,15 +631,11 @@ mod canvas_tests {
 
         assert_eq!(canvas.painters.is_empty(), true);
 
-        canvas
-            .add_painter("painter".to_string(), painter_1)
-            .unwrap();
+        canvas.add_painter(painter_1).unwrap();
 
         assert_eq!(canvas.painters.len(), 1);
 
-        let second_painter_add_result = canvas
-            .add_painter("painter_two".to_string(), painter_2)
-            .unwrap_err();
+        let second_painter_add_result = canvas.add_painter(painter_2).unwrap_err();
 
         assert_eq!(second_painter_add_result, AddPainterError::SpaceTaken);
         assert_eq!(canvas.painters.len(), 1);
