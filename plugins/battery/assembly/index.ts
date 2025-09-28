@@ -14,9 +14,9 @@ export function add(a: i32, b: i32): ArrayBuffer {
 
 
 export function draw(): ArrayBuffer {
-    const arr: ArrayBuffer = new ArrayBuffer(18)
+    const arr: ArrayBuffer = new ArrayBuffer(90)
     const view = new DataView(arr)
-    for (let i = 0; i < 18; i++) {
+    for (let i = 0; i < 90; i++) {
         view.setUint8(i, 255)
     }
     return arr
