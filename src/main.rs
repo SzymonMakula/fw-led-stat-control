@@ -19,7 +19,8 @@ mod wasm_module;
 fn main() {
     let mut canvas: Canvas = Config::init().into();
     let matrix = canvas.paint_matrix();
-    println!("matrix {:?} and {:?}", matrix, canvas.painters.len())
+    let config = toml::to_string_pretty(&canvas).unwrap();
+    println!("{}", config);
 }
 
 // let mut port = serialport::new("/dev/ttyACM0", 115_200)

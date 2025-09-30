@@ -1,4 +1,5 @@
 use crate::canvas::Canvas;
+use crate::config::Config;
 
 struct Controller {
     canvas: Canvas,
@@ -6,8 +7,10 @@ struct Controller {
 
 impl Controller {
     fn init() -> Self {
+        let config = Config::init();
+
         Self {
-            canvas: Canvas::new(),
+            canvas: config.into(),
         }
     }
 }

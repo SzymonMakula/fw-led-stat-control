@@ -1,5 +1,9 @@
 use std::collections::HashMap;
 use std::fs;
+use std::path::Path;
+
+use serde::{Serialize, Serializer};
+use serde::ser::{SerializeMap, SerializeSeq, SerializeStruct};
 
 use crate::config::Config;
 use crate::matrix::{EMPTY_MATRIX, Matrix, MATRIX_WIDTH};
@@ -17,7 +21,7 @@ impl From<Config> for Canvas {
             .into_iter()
             .filter_map(|record| {
                 if record.pos_x.is_some() && record.pos_y.is_some() {
-                    fs::read(record.path)
+                    fs::read(Path::new(&format!("plugins/{}.wasm", record.name)))
                         .ok()
                         .map(WasmModule::new)
                         .map(Plugin::from)
@@ -37,11 +41,46 @@ impl From<Config> for Canvas {
     }
 }
 
-pub(crate) struct Painter {
-    offset_x: usize,
-    offset_y: usize,
-    plugin: Plugin,
+impl Serialize for Canvas {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let mut state = serializer.serialize_struct("Canvas", 1).unwrap();
+        state
+            .serialize_field(
+                "plugins",
+                &self.painters.values().collect::<Vec<&Painter>>(),
+            )
+            .unwrap();
+
+        state.end()
+    }
 }
+
+#[derive(Serialize)]
+pub(crate) struct Painter {
+    #[serde(rename = "name")]
+    plugin: Plugin,
+    #[serde(rename = "pos_x")]
+    offset_x: usize,
+    #[serde(rename = "pos_y")]
+    offset_y: usize,
+}
+
+// impl Serialize for Painter {
+//     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+//     where
+//         S: Serializer,
+//     {
+//         let mut state = serializer.serialize_map(Some(3)).unwrap();
+//         state.serialize_entry("name", &self.plugin.name).unwrap();
+//         state.serialize_entry("pos_x", &self.offset_x).unwrap();
+//         state.serialize_entry("pos_y", &self.offset_y).unwrap();
+//
+//         state.end()
+//     }
+// }
 
 impl Painter {
     // Returns space taken by Picture as Matrix. non 0 values indicate space taken.

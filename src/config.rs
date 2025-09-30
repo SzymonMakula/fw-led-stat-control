@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::fs;
 
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 use crate::canvas::Canvas;
 
@@ -13,7 +13,6 @@ pub(crate) struct Config {
 #[derive(Deserialize, Debug)]
 pub(crate) struct PluginConf {
     pub(crate) name: String,
-    pub(crate) path: String,
     pub(crate) pos_x: Option<usize>,
     pub(crate) pos_y: Option<usize>,
 }
