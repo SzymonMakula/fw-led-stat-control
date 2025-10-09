@@ -3,6 +3,10 @@ name = "battery"
 pos_x = 0
 pos_y = 0
 
+[[plugins]]
+name = "stub2"
+pos_x = 0
+pos_y = 29
 
 [[plugins]]
 name = "stub"

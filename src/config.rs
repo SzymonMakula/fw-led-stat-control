@@ -5,12 +5,12 @@ use serde::{Deserialize, Serialize};
 
 use crate::canvas::Canvas;
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Serialize, Debug)]
 pub(crate) struct Config {
     pub(crate) plugins: Vec<PluginConf>,
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Serialize, Debug)]
 pub(crate) struct PluginConf {
     pub(crate) name: String,
     pub(crate) pos_x: Option<usize>,
@@ -21,5 +21,10 @@ impl Config {
     pub fn init() -> Self {
         let toml_str = fs::read_to_string("config.toml").unwrap();
         toml::from_str(&toml_str).unwrap()
+    }
+
+    pub fn save_to_system(&self) {
+        let buffer = toml::to_string(self).unwrap();
+        fs::write("config.toml", buffer).unwrap()
     }
 }

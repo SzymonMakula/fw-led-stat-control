@@ -1,3 +1,6 @@
+use std::fs;
+use std::path::Path;
+
 use byteorder::{ByteOrder, LittleEndian};
 use log::warn;
 use serde::Deserialize;
@@ -12,10 +15,17 @@ pub struct WasmModule {
     store: Store,
 }
 
-impl WasmModule {
-    pub fn new(module_bytes: Vec<u8>) -> Self {
+impl From<&str> for WasmModule {
+    fn from(value: &str) -> Self {
+        let module = fs::read(Path::new(PLUGINS_DIR).join(&format!("{}.wasm", value))).unwrap();
+        Self::from(module)
+    }
+}
+
+impl From<Vec<u8>> for WasmModule {
+    fn from(value: Vec<u8>) -> Self {
         let mut store = Store::default();
-        let module = Module::new(&store, module_bytes).expect("Failed to construct WASM module");
+        let module = Module::new(&store, value).expect("Failed to construct WASM module");
         let import_object = create_imports(&mut store);
 
         let instance = Instance::new(&mut store, &module, &import_object)
@@ -91,3 +101,5 @@ fn abort_polyfill(msg: i32, file: i32, line: i32, col: i32) {
         line, col, msg, file
     );
 }
+
+const PLUGINS_DIR: &'static str = "./plugins";

@@ -21,16 +21,13 @@ impl From<Config> for Canvas {
             .into_iter()
             .filter_map(|record| {
                 if record.pos_x.is_some() && record.pos_y.is_some() {
-                    fs::read(Path::new(&format!("plugins/{}.wasm", record.name)))
-                        .ok()
-                        .map(WasmModule::new)
-                        .map(Plugin::from)
-                        .map(|plugin: Plugin| Painter {
-                            plugin,
-                            offset_x: record.pos_x.unwrap(),
-                            offset_y: record.pos_y.unwrap(),
-                        })
-                        .map(|painter| (record.name, painter))
+                    let plugin = Plugin::from(WasmModule::from(record.name.as_str()));
+                    let painter = Painter {
+                        plugin,
+                        offset_x: record.pos_x.unwrap(),
+                        offset_y: record.pos_y.unwrap(),
+                    };
+                    Some((record.name, painter))
                 } else {
                     None
                 }
@@ -68,21 +65,15 @@ pub(crate) struct Painter {
     offset_y: usize,
 }
 
-// impl Serialize for Painter {
-//     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-//     where
-//         S: Serializer,
-//     {
-//         let mut state = serializer.serialize_map(Some(3)).unwrap();
-//         state.serialize_entry("name", &self.plugin.name).unwrap();
-//         state.serialize_entry("pos_x", &self.offset_x).unwrap();
-//         state.serialize_entry("pos_y", &self.offset_y).unwrap();
-//
-//         state.end()
-//     }
-// }
-
 impl Painter {
+    pub fn new(plugin: Plugin, pos_x: usize, pos_y: usize) -> Self {
+        Self {
+            plugin,
+            offset_x: pos_x,
+            offset_y: pos_y,
+        }
+    }
+
     // Returns space taken by Picture as Matrix. non 0 values indicate space taken.
     fn get_space_as_matrix(&self) -> Matrix {
         let mut output = Vec::from(EMPTY_MATRIX);
@@ -100,7 +91,7 @@ impl Painter {
 }
 
 #[derive(Debug, Eq, PartialEq)]
-enum AddPainterError {
+pub(crate) enum AddPainterError {
     SpaceTaken,
     DuplicateIdentifier,
 }
