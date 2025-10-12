@@ -5,11 +5,11 @@ import {Transform} from "assemblyscript/transform"
 export default class CustomSectionTransform extends Transform {
     afterCompile(module: Module): void {
         const meta = {
-            name: "stub",
+            name: "time",
             version: 1,
             description: "Battery percentage display",
-            width: 5,
-            height: 10
+            width: 8,
+            height: 4
         };
 
         // Encode to UTF-8. (Binary data would work too—just provide a Uint8Array.)

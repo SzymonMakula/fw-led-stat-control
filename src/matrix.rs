@@ -68,7 +68,7 @@ impl Matrix {
         Ok(())
     }
     pub fn get_el(&self, row: usize, col: usize) -> u8 {
-        self.data[row * 9 + col]
+        self.data[row * MATRIX_WIDTH + col]
     }
 
     fn get_row(&self, row: u8) -> [u8; MATRIX_WIDTH] {
@@ -79,10 +79,10 @@ impl Matrix {
         target_row
     }
 
-    fn get_col(&self, col: u8) -> [u8; MATRIX_HEIGHT] {
+    pub fn get_col(&self, col: usize) -> [u8; MATRIX_HEIGHT] {
         let mut target_col = [0u8; MATRIX_HEIGHT];
-        for i in 0u8..38 {
-            target_col[i as usize] = self.get_el(i as usize, col as usize);
+        for i in 0..MATRIX_HEIGHT {
+            target_col[i] = self.get_el(i, col);
         }
         target_col
     }
@@ -133,7 +133,7 @@ impl Display for Matrix {
 }
 
 pub const MATRIX_WIDTH: usize = 9;
-pub const MATRIX_HEIGHT: usize = 39;
+pub const MATRIX_HEIGHT: usize = 34;
 pub const MATRIX_ITEM_COUNT: usize = 351;
 pub const EMPTY_MATRIX: [u8; MATRIX_ITEM_COUNT] = [0u8; MATRIX_ITEM_COUNT];
 

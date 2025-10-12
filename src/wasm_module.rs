@@ -1,9 +1,14 @@
+use std::cell::OnceCell;
 use std::fs;
 use std::path::Path;
+use std::sync::{LazyLock, LockResult, Mutex, OnceLock};
+use std::time::UNIX_EPOCH;
 
+use battery::{Battery, Manager};
 use byteorder::{ByteOrder, LittleEndian};
 use log::warn;
 use serde::Deserialize;
+use sysinfo::{CpuRefreshKind, RefreshKind, System};
 use wasmer::{Function, imports, Imports, Instance, Module, Store, TypedFunction, WasmPtr};
 
 use crate::matrix::Matrix;
@@ -90,7 +95,14 @@ pub struct Metadata {
 fn create_imports(store: &mut Store) -> Imports {
     imports! {
         "env" => {
-            "abort" => Function::new_typed(store, abort_polyfill)
+            "abort" => Function::new_typed(store, abort_polyfill),
+               "seed" => Function::new_typed(store, || {
+                0.0f64
+            }),
+            "get_battery_state_of_charge" => Function::new_typed(store, get_battery_state_of_charge),
+            "get_global_cpu_usage" => Function::new_typed(store, get_global_cpu_usage),
+            "get_memory_usage" => Function::new_typed(store, get_memory_usage),
+            "get_epoch_time" => Function::new_typed(store, get_epoch_time),
         }
     }
 }
@@ -102,4 +114,51 @@ fn abort_polyfill(msg: i32, file: i32, line: i32, col: i32) {
     );
 }
 
+fn get_battery_state_of_charge() -> f32 {
+    get_battery().state_of_charge().value
+}
+
+fn get_global_cpu_usage() -> f32 {
+    SYSTEM_LOCK.lock().unwrap().refresh_cpu_usage();
+    let usage = SYSTEM_LOCK.lock().unwrap().global_cpu_usage();
+
+    usage
+}
+
+fn get_battery() -> Battery {
+    Manager::new()
+        .unwrap()
+        .batteries()
+        .unwrap()
+        .next()
+        .unwrap()
+        .unwrap()
+}
+
+fn get_memory_usage() -> f32 {
+    let mut system = SYSTEM_LOCK.lock().unwrap();
+    system.refresh_memory();
+    let total_memory = system.total_memory();
+    let used_memory = system.used_memory();
+
+    let ratio = used_memory as f32 / total_memory as f32;
+
+    ratio
+}
+
+fn get_epoch_time() -> u64 {
+    let time = std::time::SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_secs();
+
+    time
+}
+
 const PLUGINS_DIR: &'static str = "./plugins";
+
+static SYSTEM_LOCK: LazyLock<Mutex<System>> = LazyLock::new(|| {
+    Mutex::new(System::new_with_specifics(
+        RefreshKind::nothing().with_cpu(CpuRefreshKind::everything()),
+    ))
+});

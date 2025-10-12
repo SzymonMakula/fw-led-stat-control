@@ -8,7 +8,7 @@ export default class CustomSectionTransform extends Transform {
             name: "stub",
             version: 1,
             description: "Battery percentage display",
-            width: 5,
+            width: 2,
             height: 10
         };
 

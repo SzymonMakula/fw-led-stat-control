@@ -5,10 +5,10 @@ import {Transform} from "assemblyscript/transform"
 export default class CustomSectionTransform extends Transform {
     afterCompile(module: Module): void {
         const meta = {
-            name: "stub",
+            name: "memory",
             version: 1,
             description: "Battery percentage display",
-            width: 5,
+            width: 2,
             height: 10
         };
 

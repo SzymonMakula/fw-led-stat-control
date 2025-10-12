@@ -5,11 +5,13 @@ use serde::Serialize;
 
 use crate::canvas::{AddPainterError, Canvas, Painter};
 use crate::config::Config;
+use crate::led_controller::LEDController;
 use crate::plugin::Plugin;
 use crate::wasm_module::WasmModule;
 
 pub struct Controller {
     canvas: Canvas,
+    led_controller: LEDController,
 }
 
 impl Controller {
@@ -18,7 +20,13 @@ impl Controller {
 
         Self {
             canvas: config.into(),
+            led_controller: LEDController::init(),
         }
+    }
+
+    pub fn schedule_paint(&mut self) {
+        let matrix = self.canvas.paint_matrix();
+        self.led_controller.draw_matrix(matrix)
     }
 
     pub fn add_plugin(

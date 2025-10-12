@@ -1,14 +1,21 @@
 [[plugins]]
+name = "time"
+pos_x = 1
+pos_y = 4
+
+
+[[plugins]]
 name = "battery"
-pos_x = 0
-pos_y = 0
-
-[[plugins]]
-name = "stub2"
-pos_x = 0
-pos_y = 29
-
-[[plugins]]
-name = "stub"
-pos_x = 0
+pos_x = 2
 pos_y = 12
+
+[[plugins]]
+name = "cpu"
+pos_x = 2
+pos_y = 24
+
+[[plugins]]
+name = "memory"
+pos_x = 5
+pos_y = 24
+
