@@ -1,11 +1,9 @@
-use std::cell::OnceCell;
 use std::fs;
 use std::path::Path;
-use std::sync::{LazyLock, LockResult, Mutex, OnceLock};
+use std::sync::{LazyLock, Mutex};
 use std::time::UNIX_EPOCH;
 
 use battery::{Battery, Manager};
-use byteorder::{ByteOrder, LittleEndian};
 use log::warn;
 use serde::Deserialize;
 use sysinfo::{CpuRefreshKind, RefreshKind, System};
@@ -87,7 +85,6 @@ impl Picture for WasmModule {
 #[derive(Deserialize)]
 pub struct Metadata {
     pub name: String,
-    pub description: String,
     pub height: usize,
     pub width: usize,
 }

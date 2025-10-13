@@ -7,17 +7,7 @@ pub struct Matrix {
     data: Vec<u8>,
 }
 
-#[derive(Debug)]
-enum DrawError {
-    IncorrectPictureSize,
-}
 impl Matrix {
-    pub fn new() -> Self {
-        Self {
-            data: Vec::from(EMPTY_MATRIX),
-        }
-    }
-
     pub fn join_matrix(&mut self, matrix: &Matrix) {
         for index in 0..matrix.data.len() {
             if matrix.data[index] != 0 {
@@ -61,12 +51,6 @@ impl Matrix {
         Matrix { data: output }
     }
 
-    fn draw(&mut self, picture: &[u8], pos: u8) -> Result<(), DrawError> {
-        let starting_pos = pos as usize * 9;
-        self.data[starting_pos..starting_pos + picture.len()].copy_from_slice(picture);
-
-        Ok(())
-    }
     pub fn get_el(&self, row: usize, col: usize) -> u8 {
         self.data[row * MATRIX_WIDTH + col]
     }

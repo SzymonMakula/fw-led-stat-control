@@ -1,12 +1,10 @@
 use std::collections::HashMap;
-use std::fs;
-use std::path::Path;
 
 use serde::{Serialize, Serializer};
-use serde::ser::{SerializeMap, SerializeSeq, SerializeStruct};
+use serde::ser::SerializeStruct;
 
 use crate::config::Config;
-use crate::matrix::{EMPTY_MATRIX, Matrix, MATRIX_WIDTH};
+use crate::matrix::Matrix;
 use crate::picture::Picture;
 use crate::plugin::Plugin;
 use crate::wasm_module::WasmModule;
@@ -65,71 +63,7 @@ pub(crate) struct Painter {
     offset_y: usize,
 }
 
-impl Painter {
-    pub fn new(plugin: Plugin, pos_x: usize, pos_y: usize) -> Self {
-        Self {
-            plugin,
-            offset_x: pos_x,
-            offset_y: pos_y,
-        }
-    }
-
-    // Returns space taken by Picture as Matrix. non 0 values indicate space taken.
-    fn get_space_as_matrix(&self) -> Matrix {
-        let mut output = Vec::from(EMPTY_MATRIX);
-
-        for row in 0..self.plugin.image_height {
-            for col in 0..self.plugin.image_width {
-                output[row * MATRIX_WIDTH + col] = 1
-            }
-        }
-        let matrix = Matrix::try_from(output.as_slice())
-            .expect("Input vector should be sanitized to match required schema");
-
-        matrix.shift_matrix(self.offset_x, self.offset_y)
-    }
-}
-
-#[derive(Debug, Eq, PartialEq)]
-pub(crate) enum AddPainterError {
-    SpaceTaken,
-    DuplicateIdentifier,
-}
 impl Canvas {
-    pub(crate) fn new() -> Self {
-        Self {
-            painters: HashMap::new(),
-        }
-    }
-
-    // Get Matrix of all vacant/busy slots
-    fn get_space_matrix(&self) -> Matrix {
-        self.painters
-            .iter()
-            .map(|(_, painter)| painter.get_space_as_matrix())
-            .reduce(|mut acc, e| {
-                acc.join_matrix(&e);
-                acc
-            })
-            .unwrap_or(Matrix::default())
-    }
-
-    // Add Painter to registered Painters
-    pub fn add_painter(&mut self, painter: Painter) -> Result<(), AddPainterError> {
-        if self.painters.get(&painter.plugin.name).is_some() {
-            return Err(AddPainterError::DuplicateIdentifier);
-        }
-
-        let is_vacant = self.is_space_vacant(&painter);
-
-        if !is_vacant {
-            return Err(AddPainterError::SpaceTaken);
-        }
-
-        self.painters.insert(painter.plugin.name.clone(), painter);
-        Ok(())
-    }
-
     // Call .draw() for all Painters and return the resulting Matrix
     pub fn paint_matrix(&mut self) -> Matrix {
         self.painters
@@ -145,19 +79,6 @@ impl Canvas {
                 acc
             })
             .unwrap_or(Matrix::default())
-    }
-
-    // Check if Painter has enough space to paint its picture
-    fn is_space_vacant(&self, painter: &Painter) -> bool {
-        let space_matrix = self.get_space_matrix();
-        for row in 0..painter.plugin.image_height {
-            for col in 0..painter.plugin.image_width {
-                if space_matrix.get_el(row + painter.offset_y, col + painter.offset_x) > 0 {
-                    return false;
-                }
-            }
-        }
-        true
     }
 }
 

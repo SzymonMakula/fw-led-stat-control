@@ -1,13 +1,8 @@
-use std::io::Write;
 use std::thread::sleep;
 use std::time::Duration;
 
-use byteorder::ByteOrder;
-use dbus::channel::Sender;
-use serialport;
 
 use crate::controller::Controller;
-use crate::picture::Picture;
 
 mod canvas;
 mod config;

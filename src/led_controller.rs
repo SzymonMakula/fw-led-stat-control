@@ -13,7 +13,7 @@ const LED_PORT_PATH: &'static str = "/dev/ttyACM0";
 
 impl LEDController {
     pub fn init() -> Self {
-        let mut port = serialport::new(LED_PORT_PATH, 115_200)
+        let port = serialport::new(LED_PORT_PATH, 115_200)
             .timeout(Duration::from_secs(3))
             .open()
             .expect("Failed to open port");

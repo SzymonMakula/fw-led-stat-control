@@ -1,9 +1,6 @@
-use std::collections::HashMap;
 use std::fs;
 
 use serde::{Deserialize, Serialize};
-
-use crate::canvas::Canvas;
 
 #[derive(Deserialize, Serialize, Debug)]
 pub(crate) struct Config {
@@ -21,10 +18,5 @@ impl Config {
     pub fn init() -> Self {
         let toml_str = fs::read_to_string("config.toml").unwrap();
         toml::from_str(&toml_str).unwrap()
-    }
-
-    pub fn save_to_system(&self) {
-        let buffer = toml::to_string(self).unwrap();
-        fs::write("config.toml", buffer).unwrap()
     }
 }
