@@ -8,6 +8,7 @@ use log::warn;
 use serde::Deserialize;
 use sysinfo::{CpuRefreshKind, RefreshKind, System};
 use wasmer::{Function, imports, Imports, Instance, Module, Store, TypedFunction, WasmPtr};
+use wasmer_compiler_singlepass::Singlepass;
 
 use crate::matrix::Matrix;
 use crate::picture::Picture;
@@ -27,7 +28,8 @@ impl From<&str> for WasmModule {
 
 impl From<Vec<u8>> for WasmModule {
     fn from(value: Vec<u8>) -> Self {
-        let mut store = Store::default();
+        let compiler = Singlepass::default();
+        let mut store = Store::new(compiler);
         let module = Module::new(&store, value).expect("Failed to construct WASM module");
         let import_object = create_imports(&mut store);
 
