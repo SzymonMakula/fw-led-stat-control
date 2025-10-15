@@ -1,0 +1,9 @@
+[Unit]
+Description=System stats for Framework laptop LED hardware
+
+[Service]
+Type=notify-reload
+ExecStart=/usr/bin/fw-systemstats
+
+[Install]
+WantedBy=multi-user.target

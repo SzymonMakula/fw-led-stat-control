@@ -17,8 +17,19 @@ impl Controller {
         }
     }
 
+    pub fn reload_config(&mut self) {
+        let config = Config::init();
+
+        self.canvas = config.into()
+    }
+
     pub fn schedule_paint(&mut self) {
         let matrix = self.canvas.paint_matrix();
         self.led_controller.draw_matrix(matrix)
     }
+}
+
+pub enum ControllerMessage {
+    ReloadConfig,
+    Terminate,
 }

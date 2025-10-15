@@ -3,7 +3,6 @@ name = "time"
 pos_x = 1
 pos_y = 4
 
-
 [[plugins]]
 name = "battery"
 pos_x = 2
