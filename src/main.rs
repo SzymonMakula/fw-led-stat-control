@@ -1,10 +1,12 @@
+use std::fs;
 use std::io::Error;
+use std::path::Path;
 use std::sync::Arc;
 use std::sync::atomic::AtomicBool;
 use std::thread::sleep;
 use std::time::Duration;
 
-use log::info;
+use log::{error, info};
 use sd_notify::NotifyState;
 use signal_hook::consts::{SIGHUP, TERM_SIGNALS};
 use signal_hook::flag;
@@ -16,6 +18,7 @@ use crate::controller::{Controller, ControllerMessage};
 mod canvas;
 mod config;
 mod controller;
+mod env;
 mod led_controller;
 mod matrix;
 mod picture;
@@ -27,6 +30,7 @@ fn main() -> Result<(), Error> {
 
     let (tx, rx) = std::sync::mpsc::channel::<ControllerMessage>();
 
+    // Worker loop that handles LED controls
     let handle = std::thread::spawn(move || {
         let mut controller = Controller::init();
         loop {
@@ -46,8 +50,8 @@ fn main() -> Result<(), Error> {
         }
     });
 
+    // Shutdown process when multiple SIGTERMs are received
     let term_now = Arc::new(AtomicBool::new(false));
-
     for sig in TERM_SIGNALS {
         flag::register_conditional_shutdown(*sig, 1, Arc::clone(&term_now))?;
         flag::register(*sig, Arc::clone(&term_now))?;
@@ -61,33 +65,31 @@ fn main() -> Result<(), Error> {
 
     sd_notify::notify(true, &[NotifyState::Ready]).unwrap();
 
-    for info in &mut signals {
-        match info.signal {
-            SIGHUP => {
-                info!("Reloading configuration file");
-                sd_notify::notify(true, &[NotifyState::Reloading]).unwrap();
-                sd_notify::notify(true, &[NotifyState::monotonic_usec_now().unwrap()]).unwrap();
+    loop {
+        for origin in signals.pending() {
+            match origin.signal {
+                SIGHUP => {
+                    info!("Reloading configuration file");
+                    sd_notify::notify(true, &[NotifyState::Reloading]).unwrap();
+                    sd_notify::notify(true, &[NotifyState::monotonic_usec_now().unwrap()]).unwrap();
 
-                tx.send(ControllerMessage::ReloadConfig).unwrap();
+                    tx.send(ControllerMessage::ReloadConfig).unwrap();
+                }
+                _term_sig => {
+                    tx.send(ControllerMessage::Terminate).unwrap();
+                    break;
+                }
             }
-            _term_sig => {
-                eprintln!("Terminating process");
-                tx.send(ControllerMessage::Terminate).unwrap();
-                break;
-            }
-        };
+        }
+        // Exit process if worker thread has finished
         if handle.is_finished() {
             match handle.join() {
-                Ok(_) => {
-                    unreachable!("Worker thread cannot successfully finish early")
-                }
+                Ok(_) => std::process::exit(0),
                 Err(err) => {
-                    eprintln!("Worker thread panicked! {:?}", err);
+                    error!("Worker thread panicked with error: {:?}", err);
                     std::process::exit(1);
                 }
             }
         }
     }
-
-    Ok(())
 }
