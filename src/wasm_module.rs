@@ -1,6 +1,5 @@
 use std::env::current_exe;
 use std::fs;
-use std::io::Error;
 use std::sync::{LazyLock, Mutex};
 use std::time::UNIX_EPOCH;
 
