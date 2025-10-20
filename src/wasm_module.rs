@@ -1,7 +1,6 @@
 use std::env::current_exe;
 use std::fs;
 use std::io::Error;
-use std::path::Path;
 use std::sync::{LazyLock, Mutex};
 use std::time::UNIX_EPOCH;
 
@@ -169,9 +168,6 @@ fn get_epoch_time() -> u64 {
 
     time
 }
-
-const PLUGINS_DIR: &'static str = "plugins";
-const PLUGIN_NOT_FOUND_MESSAGE: &'static str = "No WASM module specified ";
 
 static SYSTEM_LOCK: LazyLock<Mutex<System>> = LazyLock::new(|| {
     Mutex::new(System::new_with_specifics(

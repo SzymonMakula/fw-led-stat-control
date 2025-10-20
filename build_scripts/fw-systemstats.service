@@ -2,7 +2,7 @@
 Description=System stats for Framework laptop LED hardware
 
 [Service]
-Type=simple
+Type=notify-reload
 Environment=FW_CONFIG_PATH=%E/fw-systemstats/config.toml
 ExecStart=/usr/local/bin/fw-systemstats
 

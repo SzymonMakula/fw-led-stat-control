@@ -18,7 +18,6 @@ use crate::controller::{Controller, ControllerMessage};
 mod canvas;
 mod config;
 mod controller;
-mod env;
 mod led_controller;
 mod matrix;
 mod picture;

@@ -1,9 +1,8 @@
+use std::env::current_exe;
 use std::fs;
 use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
-
-use crate::env::{CONFIG_PATH_OVERRIDE_ENV, HOME_ENV, XDG_CONFIG_HOME_ENV};
 
 #[derive(Deserialize, Serialize, Debug)]
 pub(crate) struct Config {
@@ -28,38 +27,14 @@ impl Config {
 Use XDG config or fallback to HOME https://specifications.freedesktop.org/basedir-spec/latest/#variables
 */
 fn get_config_file() -> String {
-    let env_config = std::env::var(CONFIG_PATH_OVERRIDE_ENV)
-        .map(PathBuf::from)
+    let config_path = current_exe()
+        .map(|path| path.as_path().parent().map(PathBuf::from))
         .ok()
-        .map(fs::read_to_string)
-        .and_then(Result::ok);
+        .flatten()
+        .map(|path| path.join("config.toml"))
+        .map(fs::canonicalize)
+        .and_then(Result::ok)
+        .unwrap();
 
-    let default_config_dir = std::env::var(HOME_ENV)
-        .map(PathBuf::from)
-        .map(|mut buf| {
-            buf.push(".config/fw-systemstats/config.toml");
-            buf
-        })
-        .ok()
-        .map(fs::read_to_string)
-        .and_then(Result::ok);
-
-    let xdg_config = std::env::var(XDG_CONFIG_HOME_ENV)
-        .map(PathBuf::from)
-        .map(|mut buf| {
-            buf.push("fw-systemstats/config.toml");
-            buf
-        })
-        .ok()
-        .map(fs::read_to_string)
-        .and_then(Result::ok);
-
-    env_config
-        .or(xdg_config)
-        .or(default_config_dir)
-        .expect(NO_CONFIG_ERR_MSG)
+    fs::read_to_string(config_path).unwrap()
 }
-
-const NO_CONFIG_ERR_MSG: &str =
-    "Could not resolve a configuration file. Make sure a valid configuration file \
-is located at $HOME/fw-systemstats/config.toml";
