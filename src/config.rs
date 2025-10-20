@@ -3,7 +3,7 @@ use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
 
-use crate::env::{CONFIG_DIR_OVERRIDE_ENV, HOME_ENV, XDG_CONFIG_HOME_ENV};
+use crate::env::{CONFIG_PATH_OVERRIDE_ENV, HOME_ENV, XDG_CONFIG_HOME_ENV};
 
 #[derive(Deserialize, Serialize, Debug)]
 pub(crate) struct Config {
@@ -19,33 +19,45 @@ pub(crate) struct PluginConf {
 
 impl Config {
     pub fn init() -> Self {
-        let config_path = get_config_path();
-        let toml_str = fs::read_to_string(config_path).expect(NO_CONFIG_ERR_MSG);
-        toml::from_str(&toml_str).unwrap()
+        let config_file = get_config_file();
+        toml::from_str(&config_file).unwrap()
     }
 }
 
 /**
 Use XDG config or fallback to HOME https://specifications.freedesktop.org/basedir-spec/latest/#variables
 */
-fn get_config_path() -> PathBuf {
-    let env_config_dir = std::env::var(CONFIG_DIR_OVERRIDE_ENV).map(PathBuf::from);
+fn get_config_file() -> String {
+    let env_config = std::env::var(CONFIG_PATH_OVERRIDE_ENV)
+        .map(PathBuf::from)
+        .ok()
+        .map(fs::read_to_string)
+        .and_then(Result::ok);
 
-    let mut default_config_dir_path =
-        PathBuf::from(std::env::var(HOME_ENV).expect("Missing 'HOME' env variable"));
-    default_config_dir_path.push(".config/fw-systemstats/config.toml");
+    let default_config_dir = std::env::var(HOME_ENV)
+        .map(PathBuf::from)
+        .map(|mut buf| {
+            buf.push(".config/fw-systemstats/config.toml");
+            buf
+        })
+        .ok()
+        .map(fs::read_to_string)
+        .and_then(Result::ok);
 
-    let mut xdg_config_path =
-        std::env::var(XDG_CONFIG_HOME_ENV)
-            .map(PathBuf::from)
-            .map(|mut buf| {
-                buf.push("fw-systemstats/config.toml");
-                buf
-            });
+    let xdg_config = std::env::var(XDG_CONFIG_HOME_ENV)
+        .map(PathBuf::from)
+        .map(|mut buf| {
+            buf.push("fw-systemstats/config.toml");
+            buf
+        })
+        .ok()
+        .map(fs::read_to_string)
+        .and_then(Result::ok);
 
-    env_config_dir
-        .or(xdg_config_path)
-        .unwrap_or(default_config_dir_path)
+    env_config
+        .or(xdg_config)
+        .or(default_config_dir)
+        .expect(NO_CONFIG_ERR_MSG)
 }
 
 const NO_CONFIG_ERR_MSG: &str =

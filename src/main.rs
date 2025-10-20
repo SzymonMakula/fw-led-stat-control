@@ -58,7 +58,8 @@ fn main() -> Result<(), Error> {
     }
 
     let mut sigs = vec![
-        SIGHUP, // Reload configs signal
+        // Reload configs signal
+        SIGHUP,
     ];
     sigs.extend(TERM_SIGNALS);
     let mut signals = SignalsInfo::<WithOrigin>::new(&sigs)?;

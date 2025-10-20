@@ -1,10 +1,12 @@
+use std::env::current_exe;
 use std::fs;
+use std::io::Error;
 use std::path::Path;
 use std::sync::{LazyLock, Mutex};
 use std::time::UNIX_EPOCH;
 
 use battery::{Battery, Manager};
-use log::warn;
+use log::{error, warn};
 use serde::Deserialize;
 use sysinfo::{CpuRefreshKind, RefreshKind, System};
 use wasmer::{Function, imports, Imports, Instance, Module, Store, TypedFunction, WasmPtr};
@@ -21,8 +23,22 @@ pub struct WasmModule {
 
 impl From<&str> for WasmModule {
     fn from(value: &str) -> Self {
-        let module = fs::read(Path::new(PLUGINS_DIR).join(&format!("{}.wasm", value))).unwrap();
-        Self::from(module)
+        let module_path = current_exe()
+            .map(|path| path.parent().unwrap().to_owned())
+            .and_then(fs::canonicalize)
+            .unwrap()
+            .join(&format!("plugins/{}.wasm", value));
+
+        match fs::read(module_path) {
+            Ok(module) => Self::from(module),
+            Err(err) => {
+                error!(
+                    "Could not locate WASM module with identifier='{}'.{} ",
+                    value, err
+                );
+                std::process::exit(1)
+            }
+        }
     }
 }
 
@@ -154,7 +170,8 @@ fn get_epoch_time() -> u64 {
     time
 }
 
-const PLUGINS_DIR: &'static str = "./plugins";
+const PLUGINS_DIR: &'static str = "plugins";
+const PLUGIN_NOT_FOUND_MESSAGE: &'static str = "No WASM module specified ";
 
 static SYSTEM_LOCK: LazyLock<Mutex<System>> = LazyLock::new(|| {
     Mutex::new(System::new_with_specifics(
