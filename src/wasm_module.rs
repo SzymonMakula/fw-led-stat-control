@@ -1,5 +1,7 @@
 use std::env::current_exe;
 use std::fs;
+use std::io::ErrorKind;
+use std::path::PathBuf;
 use std::sync::{LazyLock, Mutex};
 use std::time::UNIX_EPOCH;
 
@@ -21,22 +23,29 @@ pub struct WasmModule {
 
 impl From<&str> for WasmModule {
     fn from(value: &str) -> Self {
-        let module_path = current_exe()
-            .map(|path| path.parent().unwrap().to_owned())
+        let module = current_exe()
+            .map(|path| path.as_path().parent().map(PathBuf::from))
+            .ok()
+            .flatten()
+            .map(|path| path.join(format!("plugins/{}.wasm", value)))
+            .ok_or(std::io::Error::from(ErrorKind::Other))
             .and_then(fs::canonicalize)
-            .unwrap()
-            .join(&format!("plugins/{}.wasm", value));
+            .and_then(fs::read);
 
-        match fs::read(module_path) {
-            Ok(module) => Self::from(module),
-            Err(err) => {
-                error!(
-                    "Could not locate WASM module with identifier='{}'.{} ",
-                    value, err
-                );
-                std::process::exit(1)
+        Self::from(module.unwrap_or_else(|err| {
+            match err.kind() {
+                ErrorKind::NotFound => {
+                    error!(
+                        "WASM module with name {} was not found in the plugins directory.",
+                        value
+                    );
+                }
+                _ => {
+                    error!("Unknown error occurred {}", err);
+                }
             }
-        }
+            std::process::exit(1)
+        }))
     }
 }
 
