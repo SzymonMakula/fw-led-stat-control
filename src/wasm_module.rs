@@ -151,7 +151,6 @@ pub struct Metadata {
 }
 
 fn create_imports(store: &mut Store) -> Imports {
-    let get_battery_state_of_charge = || SystemStatMonitor::get_battery_state_of_charge();
     let get_global_cpu_usage = || SYSTEM_STAT_MONITOR.lock().unwrap().get_global_cpu_usage();
     let get_memory_usage = || SYSTEM_STAT_MONITOR.lock().unwrap().get_memory_usage();
 
@@ -161,10 +160,10 @@ fn create_imports(store: &mut Store) -> Imports {
                "seed" => Function::new_typed(store, || {
                 0.0f64
             }),
-            "get_battery_state_of_charge" => Function::new_typed(store, get_battery_state_of_charge),
+            "get_battery_state_of_charge" => Function::new_typed(store, SystemStatMonitor::get_battery_state_of_charge),
             "get_global_cpu_usage" => Function::new_typed(store, get_global_cpu_usage),
             "get_memory_usage" => Function::new_typed(store, get_memory_usage),
-            "get_epoch_time" => Function::new_typed(store, get_epoch_time),
+            "get_epoch_time" => Function::new_typed(store, SystemStatMonitor::get_epoch_time),
         }
     }
 }
@@ -174,15 +173,6 @@ fn abort_polyfill(msg: i32, file: i32, line: i32, col: i32) {
         "AssemblyScript abort called at {}:{} (msg_ptr={}, file_ptr={})",
         line, col, msg, file
     );
-}
-
-fn get_epoch_time() -> u64 {
-    let time = std::time::SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap()
-        .as_secs();
-
-    time
 }
 
 struct SystemStatMonitor {
@@ -238,6 +228,15 @@ impl SystemStatMonitor {
             });
 
         first_battery.state_of_charge().value
+    }
+
+    fn get_epoch_time() -> u64 {
+        let time = std::time::SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_secs();
+
+        time
     }
 
     fn check_refresh(&mut self) {
