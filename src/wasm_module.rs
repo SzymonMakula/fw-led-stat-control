@@ -1,11 +1,12 @@
 use std::env::current_exe;
 use std::fs;
-use std::io::ErrorKind;
+use std::io::{Error, ErrorKind};
+use std::iter::Flatten;
 use std::path::PathBuf;
 use std::sync::{LazyLock, Mutex};
 use std::time::UNIX_EPOCH;
 
-use battery::{Battery, Manager};
+use battery::{Batteries, Battery, Manager};
 use log::{error, warn};
 use serde::Deserialize;
 use sysinfo::{CpuRefreshKind, RefreshKind, System};
@@ -17,8 +18,14 @@ use crate::picture::Picture;
 
 pub struct WasmModule {
     instance: Instance,
-    pub metadata: Metadata,
+    pub(crate) metadata: Metadata,
     store: Store,
+}
+
+#[derive(Debug)]
+enum WASMError {
+    NoCustomSection,
+    InvalidCustomSection,
 }
 
 impl From<&str> for WasmModule {
@@ -53,16 +60,31 @@ impl From<Vec<u8>> for WasmModule {
     fn from(value: Vec<u8>) -> Self {
         let compiler = Singlepass::default();
         let mut store = Store::new(compiler);
-        let module = Module::new(&store, value).expect("Failed to construct WASM module");
+        let module = Module::new(&store, value).unwrap_or_else(|err| {
+            error!(target: "WASM","Failed to compile WASM module: {}", err);
+            std::process::exit(1)
+        });
         let import_object = create_imports(&mut store);
 
-        let instance = Instance::new(&mut store, &module, &import_object)
-            .expect("Failed to instantiate WASM module");
+        let instance = Instance::new(&mut store, &module, &import_object).unwrap_or_else(|err| {
+            error!(target: "WASM","Failed to construct module Instance: {}", err);
+            std::process::exit(1)
+        });
 
-        let metadata_buffer =
-            String::from_utf8(module.custom_sections("metadata").next().unwrap().to_vec()).unwrap();
-
-        let metadata: Metadata = serde_json::from_str(&metadata_buffer).unwrap();
+        let metadata = module
+            .custom_sections("metadata")
+            .next()
+            .ok_or(WASMError::NoCustomSection)
+            .map(Vec::from)
+            .map(String::from_utf8)
+            .and_then(|val| val.or(Err(WASMError::InvalidCustomSection)))
+            .and_then(|str| {
+                serde_json::from_str::<Metadata>(&str).or(Err(WASMError::InvalidCustomSection))
+            })
+            .unwrap_or_else(|err| {
+                error!(target: "WASM","Failed to read 'metadata' custom section: {:?}", err);
+                std::process::exit(1);
+            });
 
         Self {
             instance,
@@ -78,17 +100,25 @@ impl Picture for WasmModule {
             .instance
             .exports
             .get_typed_function(&mut self.store, "draw")
-            .unwrap();
+            .unwrap_or_else(|err| {
+                error!(target: "WASM", "Failed to get 'draw' function at '{}' module, with error: '{}' ", self.metadata.name, err);
+                std::process::exit(1);
+            });
 
         let picture_ptr = draw_function
             .call_sys(&mut self.store)
-            .expect("Exported function call failed");
+            .unwrap_or_else(|err| {
+                error!(target: "WASM", "Call to 'draw' function failed at '{}' module, with error: {}", self.metadata.name, err);
+                std::process::exit(1);
+            });
 
         let view = self
             .instance
             .exports
-            .get_memory("memory")
-            .expect("Failed to get exported memory")
+            .get_memory("memory").unwrap_or_else(|err| {
+            error!(target: "WASM", "Could not retrieve memory at key 'memory' at '{}' module, with error: {}",self.metadata.name, err);
+            std::process::exit(1);
+        })
             .view(&self.store);
 
         let picture_deref_ptr = picture_ptr.deref(&view);
@@ -100,7 +130,10 @@ impl Picture for WasmModule {
             .copy_range_to_vec(
                 picture_deref_ptr.offset()..picture_deref_ptr.offset() + payload_length as u64,
             )
-            .unwrap();
+            .unwrap_or_else(|_| {
+                error!(target: "WASM", "Failed to copy picture data at '{}' module", self.metadata.name);
+                std::process::exit(1)
+            });
 
         // Map picture to a 9x39 matrix
         Matrix::from_picture(picture, self.metadata.width, self.metadata.height)
@@ -109,9 +142,9 @@ impl Picture for WasmModule {
 
 #[derive(Deserialize)]
 pub struct Metadata {
-    pub name: String,
     pub height: usize,
     pub width: usize,
+    pub(crate) name: String,
 }
 
 fn create_imports(store: &mut Store) -> Imports {
@@ -148,13 +181,20 @@ fn get_global_cpu_usage() -> f32 {
 }
 
 fn get_battery() -> Battery {
-    Manager::new()
-        .unwrap()
-        .batteries()
-        .unwrap()
-        .next()
-        .unwrap()
-        .unwrap()
+    let mut batteries = Manager::new()
+        .and_then(|manager| manager.batteries())
+        .unwrap_or_else(|err| {
+            error!(target: "Battery API", "Failed to construct Batteries iterator {}", err);
+            std::process::exit(1)
+        });
+    let first_battery = batteries.next().unwrap_or_else(|| {
+        error!(target: "Battery API", "No batteries found in the 'Batteries' iterator");
+        std::process::exit(1)
+    });
+    first_battery.unwrap_or_else(|err| {
+        error!(target: "Battery API", "Failed to get battery information {}", err);
+        std::process::exit(1)
+    })
 }
 
 fn get_memory_usage() -> f32 {

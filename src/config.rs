@@ -14,8 +14,8 @@ pub(crate) struct Config {
 #[derive(Deserialize, Serialize, Debug)]
 pub(crate) struct PluginConf {
     pub(crate) name: String,
-    pub(crate) pos_x: Option<usize>,
-    pub(crate) pos_y: Option<usize>,
+    pub(crate) pos_x: usize,
+    pub(crate) pos_y: usize,
 }
 
 impl Config {

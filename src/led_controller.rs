@@ -1,6 +1,7 @@
 use std::io::Write;
 use std::time::Duration;
 
+use log::error;
 use serialport::SerialPort;
 
 use crate::matrix::{Matrix, MATRIX_WIDTH};
@@ -16,7 +17,10 @@ impl LEDController {
         let port = serialport::new(LED_PORT_PATH, 115_200)
             .timeout(Duration::from_secs(3))
             .open()
-            .expect("Failed to open port");
+            .unwrap_or_else(|err| {
+                error!("Failed to open LED Matrix Serial Port {}", err);
+                std::process::exit(1)
+            });
 
         Self { port }
     }
