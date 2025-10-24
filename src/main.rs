@@ -20,6 +20,7 @@ mod led_controller;
 mod matrix;
 mod picture;
 mod plugin;
+mod system_stat_monitor;
 mod wasm_module;
 
 fn main() -> Result<(), Error> {

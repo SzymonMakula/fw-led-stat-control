@@ -1,23 +1,17 @@
 use std::env::current_exe;
 use std::fs;
-use std::io::{Error, ErrorKind};
-use std::iter::Flatten;
-use std::ops::Deref;
+use std::io::ErrorKind;
 use std::path::PathBuf;
 use std::sync::{LazyLock, Mutex};
-use std::time::{Duration, Instant, UNIX_EPOCH};
 
-use battery::{Batteries, Battery, Manager};
 use log::{error, warn};
 use serde::Deserialize;
-use sysinfo::{
-    CpuRefreshKind, MemoryRefreshKind, MINIMUM_CPU_UPDATE_INTERVAL, RefreshKind, System,
-};
 use wasmer::{Function, imports, Imports, Instance, Module, Store, TypedFunction, WasmPtr};
 use wasmer_compiler_singlepass::Singlepass;
 
 use crate::matrix::Matrix;
 use crate::picture::Picture;
+use crate::system_stat_monitor::SystemStatMonitor;
 
 pub struct WasmModule {
     instance: Instance,
@@ -170,82 +164,6 @@ fn abort_polyfill(msg: i32, file: i32, line: i32, col: i32) {
         "AssemblyScript abort called at {}:{} (msg_ptr={}, file_ptr={})",
         line, col, msg, file
     );
-}
-
-struct SystemStatMonitor {
-    system_api: System,
-    last_refresh: Instant,
-}
-
-impl SystemStatMonitor {
-    fn new() -> Self {
-        Self {
-            system_api: System::new(),
-            last_refresh: Instant::now(),
-        }
-    }
-
-    fn get_memory_usage(&mut self) -> f32 {
-        self.check_refresh();
-
-        let system = &self.system_api;
-        let total_memory = system.total_memory();
-        let used_memory = system.used_memory();
-
-        let ratio = used_memory as f32 / total_memory as f32;
-
-        ratio
-    }
-
-    fn get_global_cpu_usage(&mut self) -> f32 {
-        self.check_refresh();
-        self.system_api.global_cpu_usage()
-    }
-
-    fn get_battery_state_of_charge() -> f32 {
-        let mut batteries = Manager::new()
-            .unwrap_or_else(|err| {
-                error!(target: "SystemStatMonitor", "Failed to instantiate Battery Manager {}", err);
-                std::process::exit(1)
-            })
-            .batteries()
-            .unwrap_or_else(|err| {
-                error!(target: "SystemStatMonitor", "Failed to construct Batteries iterator {}", err);
-                std::process::exit(1)
-            });
-        let first_battery = batteries
-            .next()
-            .unwrap_or_else(|| {
-                error!(target: "SystemStatMonitor", "No batteries found in the 'Batteries' iterator");
-                std::process::exit(1)
-            })
-            .unwrap_or_else(|err| {
-                error!(target: "SystemStatMonitor", "Failed to get battery information {}", err);
-                std::process::exit(1)
-            });
-
-        first_battery.state_of_charge().value
-    }
-
-    fn get_epoch_time() -> u64 {
-        let time = std::time::SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_secs();
-
-        time
-    }
-
-    fn check_refresh(&mut self) {
-        if Instant::now().duration_since(self.last_refresh) > MINIMUM_CPU_UPDATE_INTERVAL {
-            self.system_api.refresh_specifics(
-                RefreshKind::nothing()
-                    .with_cpu(CpuRefreshKind::everything())
-                    .with_memory(MemoryRefreshKind::everything()),
-            );
-            self.last_refresh = Instant::now()
-        }
-    }
 }
 
 static SYSTEM_STAT_MONITOR: LazyLock<Mutex<SystemStatMonitor>> =
