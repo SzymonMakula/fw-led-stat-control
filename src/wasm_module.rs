@@ -157,9 +157,6 @@ fn create_imports(store: &mut Store) -> Imports {
     imports! {
         "env" => {
             "abort" => Function::new_typed(store, abort_polyfill),
-               "seed" => Function::new_typed(store, || {
-                0.0f64
-            }),
             "get_battery_state_of_charge" => Function::new_typed(store, SystemStatMonitor::get_battery_state_of_charge),
             "get_global_cpu_usage" => Function::new_typed(store, get_global_cpu_usage),
             "get_memory_usage" => Function::new_typed(store, get_memory_usage),
@@ -208,22 +205,22 @@ impl SystemStatMonitor {
     fn get_battery_state_of_charge() -> f32 {
         let mut batteries = Manager::new()
             .unwrap_or_else(|err| {
-                error!(target: "SystemStatMonitor", "Failed to instantiate Battery Manager");
+                error!(target: "SystemStatMonitor", "Failed to instantiate Battery Manager {}", err);
                 std::process::exit(1)
             })
             .batteries()
             .unwrap_or_else(|err| {
-                error!(target: "Battery API", "Failed to construct Batteries iterator {}", err);
+                error!(target: "SystemStatMonitor", "Failed to construct Batteries iterator {}", err);
                 std::process::exit(1)
             });
         let first_battery = batteries
             .next()
             .unwrap_or_else(|| {
-                error!(target: "Battery API", "No batteries found in the 'Batteries' iterator");
+                error!(target: "SystemStatMonitor", "No batteries found in the 'Batteries' iterator");
                 std::process::exit(1)
             })
             .unwrap_or_else(|err| {
-                error!(target: "Battery API", "Failed to get battery information {}", err);
+                error!(target: "SystemStatMonitor", "Failed to get battery information {}", err);
                 std::process::exit(1)
             });
 
