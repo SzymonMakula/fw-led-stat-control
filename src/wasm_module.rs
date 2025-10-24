@@ -2,14 +2,17 @@ use std::env::current_exe;
 use std::fs;
 use std::io::{Error, ErrorKind};
 use std::iter::Flatten;
+use std::ops::Deref;
 use std::path::PathBuf;
 use std::sync::{LazyLock, Mutex};
-use std::time::UNIX_EPOCH;
+use std::time::{Duration, Instant, UNIX_EPOCH};
 
 use battery::{Batteries, Battery, Manager};
 use log::{error, warn};
 use serde::Deserialize;
-use sysinfo::{CpuRefreshKind, RefreshKind, System};
+use sysinfo::{
+    CpuRefreshKind, MemoryRefreshKind, MINIMUM_CPU_UPDATE_INTERVAL, RefreshKind, System,
+};
 use wasmer::{Function, imports, Imports, Instance, Module, Store, TypedFunction, WasmPtr};
 use wasmer_compiler_singlepass::Singlepass;
 
@@ -148,6 +151,10 @@ pub struct Metadata {
 }
 
 fn create_imports(store: &mut Store) -> Imports {
+    let get_battery_state_of_charge = || SystemStatMonitor::get_battery_state_of_charge();
+    let get_global_cpu_usage = || SYSTEM_STAT_MONITOR.lock().unwrap().get_global_cpu_usage();
+    let get_memory_usage = || SYSTEM_STAT_MONITOR.lock().unwrap().get_memory_usage();
+
     imports! {
         "env" => {
             "abort" => Function::new_typed(store, abort_polyfill),
@@ -169,45 +176,6 @@ fn abort_polyfill(msg: i32, file: i32, line: i32, col: i32) {
     );
 }
 
-fn get_battery_state_of_charge() -> f32 {
-    get_battery().state_of_charge().value
-}
-
-fn get_global_cpu_usage() -> f32 {
-    SYSTEM_LOCK.lock().unwrap().refresh_cpu_usage();
-    let usage = SYSTEM_LOCK.lock().unwrap().global_cpu_usage();
-
-    usage
-}
-
-fn get_battery() -> Battery {
-    let mut batteries = Manager::new()
-        .and_then(|manager| manager.batteries())
-        .unwrap_or_else(|err| {
-            error!(target: "Battery API", "Failed to construct Batteries iterator {}", err);
-            std::process::exit(1)
-        });
-    let first_battery = batteries.next().unwrap_or_else(|| {
-        error!(target: "Battery API", "No batteries found in the 'Batteries' iterator");
-        std::process::exit(1)
-    });
-    first_battery.unwrap_or_else(|err| {
-        error!(target: "Battery API", "Failed to get battery information {}", err);
-        std::process::exit(1)
-    })
-}
-
-fn get_memory_usage() -> f32 {
-    let mut system = SYSTEM_LOCK.lock().unwrap();
-    system.refresh_memory();
-    let total_memory = system.total_memory();
-    let used_memory = system.used_memory();
-
-    let ratio = used_memory as f32 / total_memory as f32;
-
-    ratio
-}
-
 fn get_epoch_time() -> u64 {
     let time = std::time::SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -217,8 +185,72 @@ fn get_epoch_time() -> u64 {
     time
 }
 
-static SYSTEM_LOCK: LazyLock<Mutex<System>> = LazyLock::new(|| {
-    Mutex::new(System::new_with_specifics(
-        RefreshKind::nothing().with_cpu(CpuRefreshKind::everything()),
-    ))
-});
+struct SystemStatMonitor {
+    system_api: System,
+    last_refresh: Instant,
+}
+
+impl SystemStatMonitor {
+    fn new() -> Self {
+        Self {
+            system_api: System::new(),
+            last_refresh: Instant::now(),
+        }
+    }
+
+    fn get_memory_usage(&mut self) -> f32 {
+        self.check_refresh();
+
+        let system = &self.system_api;
+        let total_memory = system.total_memory();
+        let used_memory = system.used_memory();
+
+        let ratio = used_memory as f32 / total_memory as f32;
+
+        ratio
+    }
+
+    fn get_global_cpu_usage(&mut self) -> f32 {
+        self.check_refresh();
+        self.system_api.global_cpu_usage()
+    }
+
+    fn get_battery_state_of_charge() -> f32 {
+        let mut batteries = Manager::new()
+            .unwrap_or_else(|err| {
+                error!(target: "SystemStatMonitor", "Failed to instantiate Battery Manager");
+                std::process::exit(1)
+            })
+            .batteries()
+            .unwrap_or_else(|err| {
+                error!(target: "Battery API", "Failed to construct Batteries iterator {}", err);
+                std::process::exit(1)
+            });
+        let first_battery = batteries
+            .next()
+            .unwrap_or_else(|| {
+                error!(target: "Battery API", "No batteries found in the 'Batteries' iterator");
+                std::process::exit(1)
+            })
+            .unwrap_or_else(|err| {
+                error!(target: "Battery API", "Failed to get battery information {}", err);
+                std::process::exit(1)
+            });
+
+        first_battery.state_of_charge().value
+    }
+
+    fn check_refresh(&mut self) {
+        if Instant::now().duration_since(self.last_refresh) > MINIMUM_CPU_UPDATE_INTERVAL {
+            self.system_api.refresh_specifics(
+                RefreshKind::nothing()
+                    .with_cpu(CpuRefreshKind::everything())
+                    .with_memory(MemoryRefreshKind::everything()),
+            );
+            self.last_refresh = Instant::now()
+        }
+    }
+}
+
+static SYSTEM_STAT_MONITOR: LazyLock<Mutex<SystemStatMonitor>> =
+    LazyLock::new(|| Mutex::new(SystemStatMonitor::new()));
