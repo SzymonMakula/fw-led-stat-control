@@ -141,7 +141,7 @@ impl Picture for WasmModule {
 pub struct Metadata {
     pub height: usize,
     pub width: usize,
-    pub(crate) name: String,
+    pub name: String,
 }
 
 fn create_imports(store: &mut Store) -> Imports {
